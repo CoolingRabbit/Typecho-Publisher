@@ -33,10 +33,6 @@ OpenClawTypecho/
 └── README.md           ← 本文档
 ```
 
-**两个使用场景：**
-- **如果你是 Typecho 站长** → 往下看「安装插件」
-- **如果你是 AI / 开发者** → 看「使用 Skill / CLI 工具」
-
 ---
 
 ## 安装插件（Typecho 站长）
@@ -49,28 +45,17 @@ OpenClawTypecho/
 
 ### 步骤
 
-1. 下载 [最新版本](https://github.com/CoolingRabbit/OpenClawTypecho/tree/main/skill)
-2. 解压到 `usr/plugins/OpenClawTypecho/`（确保目录名正确）
-3. 后台 → 插件 → 启用 **OpenClawTypecho**
-4. 点击 **🔑 自动生成随机 Token**，复制保存
-5. 选择 AI 发布文章使用的作者账户（建议创建独立用户，用户组设为「贡献者」）
+#### Typecho 插件安装
+1. 下载本仓库的 Plugin.php 和 Action.php，放至 你的Typecho插件目录 /www/usr/plugins/OpenClawTypecho
+2. 登录Typecho Web 后台 → 插件 → 启用 OpenClawTypecho
+3. 点击 🔑 自动生成随机 Token，复制保存
+4. 选择 AI 发布文章使用的作者账户（建议创建独立「贡献者」用户）
+5. 将以下信息提供给 AI：
+  博客地址：https://www.example.com
+  API Token：CYSlXpaX...
 
-### 给 AI 的配置信息
-
-插件配置完成后，将以下信息提供给 AI：
-
-| 信息 | 说明 | 示例 |
-|------|------|------|
-| **博客地址** | 你的 Typecho 博客 URL | `https://www.example.com` |
-| **API Token** | 后台生成的 Token | `CYSlXpaX...` |
-
-AI 会自行配置 `typecho-cli`，无需你手动操作。
-
----
-
-## 使用 Skill（AI / 开发者）
-
-### 安装 Skill
+#### Skill 安装
+**方式一：通过 OpenClaw 安装（推荐）**
 
 ```bash
 openclaw skills install typecho-publisher
@@ -78,16 +63,8 @@ openclaw skills install typecho-publisher
 
 > 旧版 `typecho-publisher-skill` 已合并到 `typecho-publisher`，安装旧 slug 会自动重定向到新版本。
 
-### 配置 CLI 工具
-
-创建配置文件 `~/.config/typecho-cli/config.json`：
-
-```json
-{
-  "domain": "https://www.example.com",
-  "token": "your-token-here"
-}
-```
+**方式二：将本仓库地址复制给ai，让他自己想办法**
+o_o ....
 
 ### CLI 命令速查
 
@@ -206,25 +183,6 @@ curl -X POST https://your-blog.com/index.php/action/openclaw-submit \
 | XSS 过滤 | 标签字段经 `Validate::xssCheck()` 处理 |
 | 长度限制 | 标题 ≤ 200 字符，正文 ≤ 50KB |
 | 独立作者账户 | 建议为 AI 创建独立贡献者账户，区分人工与 AI 文章 |
-
----
-
-## 发布安全提醒（重要 ⚠️）
-
-如果你计划修改此 Skill 并重新发布到 ClawHub，**请务必注意：**
-
-### 不要打包真实凭证
-
-- 本仓库的 `.gitignore` 已排除 `config.json`、`.env` 等敏感文件，但**发布前仍需手动检查打包内容**
-- 确保发布的 Skill 包中**不包含任何真实 Token、博客地址或密码**
-- 用户的 `domain` 和 `token` 应由用户在使用时自行配置，而非硬编码在 Skill 文件中
-
-### 已泄露怎么办
-
-如果你发现之前发布的版本中误带了真实凭证：
-1. **立即重新生成 Token**（后台 → 插件 → OpenClawTypecho → 设置 → 重新生成）
-2. **在 ClawHub 上重新发布**，确保新版本不包含 `config.json` 或任何带真实值的配置文件
-3. 旧 Token 已失效，无需担心被继续利用
 
 ---
 
