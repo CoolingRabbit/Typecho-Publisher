@@ -4,10 +4,10 @@ description: AI 直接管理的 Typecho 博客知识库技能 — 通过 typecho
 version: 3.0.0
 ---
 
-# OpenClaw Typecho Skill
+# Typecho Publisher Skill
 
 > **用途**：当 AI 需要将生成的内容保存到 Typecho 博客，或管理已有文章时，按此规范操作。
-> **插件仓库**：https://github.com/CoolingRabbit/OpenClawTypecho
+> **插件仓库**：https://github.com/CoolingRabbit/Typecho-Publisher
 > **安装与配置**：参见仓库 README.md
 
 ---
@@ -21,7 +21,7 @@ version: 3.0.0
 **简要部署步骤：**
 1. 准备一台支持 PHP 8.0+ 和 MySQL 的服务器
 2. 安装 Typecho 博客程序
-3. 下载 [OpenClawTypecho 插件](https://github.com/CoolingRabbit/OpenClawTypecho/releases) 并启用
+3. 下载 [Typecho-Publisher 插件](https://github.com/CoolingRabbit/Typecho-Publisher/releases) 并启用
 4. 在插件设置中生成 API Token
 
 ---

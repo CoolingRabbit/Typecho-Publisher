@@ -23,10 +23,10 @@
 ## 仓库结构
 
 ```
-OpenClawTypecho/
+Typecho-Publisher/
 ├── Plugin.php          ← Typecho 插件本体（PHP）
 ├── Action.php          ← API 处理器（PHP）
-├── skill/              ← AI Skill 工具层（v3.0.0 新增）
+├── typecho-publisher-skill/ ← AI Skill 工具层（v3.0.0 新增）
 │   ├── SKILL.md        ← AI 写作规范与操作指南
 │   ├── typecho-cli     ← Python CLI 工具
 │   └── plugin.json     ← Skill 元数据
@@ -243,7 +243,7 @@ curl -X POST https://your-blog.com/index.php/action/openclaw-submit \
 ## 更新日志
 
 ### v3.0.0
-- **新增 `skill/` 目录**：包含 `typecho-cli` Python CLI 工具、plugin.json、更新版 SKILL.md
+- **新增 `typecho-publisher-skill/` 目录**：包含 `typecho-cli` Python CLI 工具、plugin.json、更新版 SKILL.md
 - **AI 操作方式变更**：不再通过读 SKILL.md 手动拼 HTTP 请求，改为调用 `typecho-cli` 命令
 - **ClawHub Skill 合并**：旧版 `typecho-publisher-skill` 合并到 `typecho-publisher`
 - **支持环境变量配置**：`TYPECHO_DOMAIN` / `TYPECHO_TOKEN`
