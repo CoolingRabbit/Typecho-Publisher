@@ -1,4 +1,4 @@
-# OpenClawTypecho
+# Typecho-Publisher (原名OpenClawTypecho)
 
 > 一台廉价的 PHP 虚拟主机 + 一个 Typecho 博客 + 这个插件 = **AI 直接管理的在线知识库**。
 
