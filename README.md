@@ -305,6 +305,9 @@ curl -X POST https://your-blog.com/index.php/action/openclaw-submit \
 
 ## 更新日志
 
+### v4.0.1
+- **修复**：旧版本升级后打开插件「设置」页报 Server Error。原因是旧版配置项（token、authorId）已保存在数据库中，Typecho 设置页回显配置时找不到同名输入项导致致命错误；现以隐藏域保留这两个字段（旧值继续用于迁移，页面上不可见）
+
 ### v4.0.0
 - **多 Agent 支持**：新增 Token 表，每个 AI Agent 绑定独立 Typecho 用户账户、使用独立 Token
 - **新增后台管理面板**「管理 → AI Token」：生成/重置/吊销/删除 Token，查看最近使用时间，Token 只显示一次（带复制按钮），列表仅显示首尾各 5 位
