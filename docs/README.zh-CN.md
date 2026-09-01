@@ -105,7 +105,7 @@ Typecho-Publisher/
 **方式一：通过 OpenClaw 安装（推荐）**
 
 ```bash
-openclaw skills install typecho-publisher
+openclaw skills install @coolingrabbit/typecho-publisher
 ```
 
 > 旧版 `typecho-publisher-skill` 已合并到 `typecho-publisher`，安装旧 slug 会自动重定向到新版本。
