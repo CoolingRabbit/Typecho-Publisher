@@ -3,6 +3,7 @@ namespace TypechoPlugin\OpenClawTypecho;
 
 use Typecho\Plugin\PluginInterface;
 use Typecho\Widget\Helper\Form;
+use Typecho\Widget\Helper\Form\Element\Hidden;
 use Typecho\Widget\Helper\Layout;
 use Typecho\Db;
 use Typecho\Options;
@@ -20,7 +21,7 @@ if (!defined('__TYPECHO_ROOT_DIR__')) {
  *
  * @package OpenClawTypecho
  * @author CoolingRabbit
- * @version 4.0.0
+ * @version 4.0.1
  * @link https://github.com/CoolingRabbit/Typecho-Publisher
  */
 class Plugin implements PluginInterface
@@ -64,6 +65,11 @@ class Plugin implements PluginInterface
             sprintf(_t('请前往 <a href="%s">管理 → AI Token</a> 生成和管理令牌。旧版单一 Token 已在升级时自动迁移，无需重新配置。'), $panelUrl)
         );
         $form->addItem($note);
+
+        // 旧版配置字段以隐藏域保留：Typecho 设置页会将已保存的配置值回显到同名输入项，
+        // 若输入项不存在会导致设置页报错；同时保留旧值供迁移逻辑读取
+        $form->addInput(new Hidden('token'));
+        $form->addInput(new Hidden('authorId'));
     }
 
     /**
