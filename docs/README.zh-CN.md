@@ -58,11 +58,12 @@ Typecho-Publisher/
 ├── Action.php          ← API 处理器（PHP）
 ├── panel.php           ← AI Token 后台管理面板（PHP，v4.0.0 新增）
 ├── typecho-publisher-skill/ ← AI Skill 工具层
-│   ├── SKILL.md        ← AI 写作规范与操作指南
+│   ├── SKILL.md        ← Agent 操作规范
 │   ├── typecho-cli     ← Python CLI 工具
 │   └── plugin.json     ← Skill 元数据
 ├── docs/
-│   └── README.zh-CN.md ← 本文档
+│   ├── README.zh-CN.md ← 本文档
+│   └── CHANGELOG.md    ← 版本更新日志
 └── README.md           ← 英文说明
 ```
 
@@ -326,48 +327,7 @@ curl -X POST https://your-blog.com/index.php/action/openclaw-submit \
 
 ## 更新日志
 
-### v4.0.1
-- **修复**：旧版本升级后打开插件「设置」页报 Server Error。原因是旧版配置项（token、authorId）已保存在数据库中，Typecho 设置页回显配置时找不到同名输入项导致致命错误；现以隐藏域保留这两个字段（旧值继续用于迁移，页面上不可见）
-
-### v4.0.0
-- **多 Agent 支持**：新增 Token 表，每个 AI Agent 绑定独立 Typecho 用户账户、使用独立 Token
-- **新增后台管理面板**「管理 → AI Token」：生成/重置/吊销/删除 Token，查看最近使用时间，Token 只显示一次（带复制按钮），列表仅显示首尾各 5 位
-- **归属隔离**：`update` / `delete` 仅限本账户名下文章，越权返回 403；`submit` 文章作者自动设为 Token 绑定账户
-- **新增 `categories` 操作 + CLI 命令**：查询现有分类列表
-- **取消自动创建分类**：传入不存在的分类返回错误，AI 需先查询后选择
-- **自动迁移**：旧版单一 Token + 作者配置自动导入为 Token 记录，老 CLI 无感升级
-- Token 服务端只存 SHA-256 哈希；鉴权成功自动更新最近使用时间
-- 修复：`update` 仅传 category/tags 时被误判"没有需要更新的字段"的问题
-
-### v3.0.0
-- **新增 `typecho-publisher-skill/` 目录**：包含 `typecho-cli` Python CLI 工具、plugin.json、更新版 SKILL.md
-- **AI 操作方式变更**：不再通过读 SKILL.md 手动拼 HTTP 请求，改为调用 `typecho-cli` 命令
-- **ClawHub Skill 合并**：旧版 `typecho-publisher-skill` 合并到 `typecho-publisher`
-- **支持环境变量配置**：`TYPECHO_DOMAIN` / `TYPECHO_TOKEN`
-
-### v2.0.2
-- 新增 `.gitignore` 排除 `config.json` 等敏感文件
-- 新增「发布安全提醒」章节
-
-### v2.0.1
-- 同步 SKILL.md 与本地版本
-- category/tags 改为必填项
-- 新增前置条件与快速配置章节
-
-### v2.0.0
-- 统一版本号，精简文档结构
-- 增强错误提示信息
-- 新增限制说明与 FAQ
-
-### v1.1.0
-- 新增文章查询列表（`list`）
-- 新增单篇文章查询（`get`）
-- 新增文章更新（`update`）
-- 新增文章删除（`delete`）
-- 统一单入口路由，通过 `action` 字段分发
-
-### v1.0.0
-- 初始版本：支持文章创建（`submit`）
+完整的版本更新记录已移至 [CHANGELOG.md](CHANGELOG.md)。
 
 ---
 
