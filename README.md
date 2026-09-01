@@ -114,11 +114,12 @@ Typecho-Publisher/
 ├── Action.php             ← REST API handler (PHP)
 ├── panel.php              ← AI Token admin panel (PHP)
 ├── typecho-publisher-skill/   ← AI skill layer
-│   ├── SKILL.md           ← Writing rules & operating manual for agents
+│   ├── SKILL.md           ← Operating manual for agents
 │   ├── typecho-cli        ← Python CLI tool
 │   └── plugin.json        ← Skill metadata
 ├── docs/
-│   └── README.zh-CN.md    ← Full Chinese documentation
+│   ├── README.zh-CN.md    ← Full Chinese documentation
+│   └── CHANGELOG.md       ← Version history & release notes
 └── README.md              ← This file
 ```
 
