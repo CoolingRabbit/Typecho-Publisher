@@ -96,6 +96,13 @@ def cmd_get(args):
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
+def cmd_categories(args):
+    domain, token = load_config(args)
+    payload = {"action": "categories"}
+    result = api_call(domain, token, payload)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
 def cmd_submit(args):
     domain, token = load_config(args)
     tags = [t.strip() for t in args.tags.split(",") if t.strip()] if args.tags else []
@@ -158,6 +165,10 @@ def main():
     p_get = sub.add_parser("get", help="查询单篇文章")
     p_get.add_argument("--cid", type=int, required=True, help="文章 ID")
     p_get.set_defaults(func=cmd_get)
+
+    # categories
+    p_categories = sub.add_parser("categories", help="查询现有分类列表（发布前必选）")
+    p_categories.set_defaults(func=cmd_categories)
 
     # submit
     p_submit = sub.add_parser("submit", help="创建文章")
