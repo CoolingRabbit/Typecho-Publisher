@@ -3,8 +3,9 @@ namespace TypechoPlugin\OpenClawTypecho;
 
 use Typecho\Plugin\PluginInterface;
 use Typecho\Widget\Helper\Form;
-use Typecho\Widget\Helper\Form\Element\Text;
-use Typecho\Widget\Helper\Form\Element\Select;
+use Typecho\Widget\Helper\Layout;
+use Typecho\Db;
+use Typecho\Options;
 use Utils\Helper;
 
 if (!defined('__TYPECHO_ROOT_DIR__')) {
@@ -15,21 +16,29 @@ if (!defined('__TYPECHO_ROOT_DIR__')) {
  * OpenClaw Typecho Skill
  *
  * 为 OpenClaw 等 AI 服务提供 REST API，支持向 Typecho 博客创建、查询、更新、删除文章，构建 AI 知识库。
+ * v4.0.0 起支持多 Agent：每个 AI Agent 绑定一个 Typecho 用户账户，使用独立 Token 接入。
  *
  * @package OpenClawTypecho
  * @author CoolingRabbit
- * @version 2.0.1
- * @link https://github.com/CoolingRabbit/OpenClawTypecho
+ * @version 4.0.0
+ * @link https://github.com/CoolingRabbit/Typecho-Publisher
  */
 class Plugin implements PluginInterface
 {
+    /**
+     * Token 表名（不含前缀）
+     */
+    const TOKEN_TABLE = 'openclaw_tokens';
+
     /**
      * 激活插件
      */
     public static function activate()
     {
         Helper::addAction('openclaw-submit', '\TypechoPlugin\OpenClawTypecho\Action');
-        return _t('插件已激活，请进入设置进行配置');
+        Helper::addPanel(3, 'OpenClawTypecho/panel.php', _t('AI Token'), _t('管理 AI Agent 的 API 访问令牌'), 'administrator');
+        self::installTokenTable();
+        return _t('插件已激活，请进入「管理 → AI Token」为 Agent 用户生成访问令牌');
     }
 
     /**
@@ -38,89 +47,23 @@ class Plugin implements PluginInterface
     public static function deactivate()
     {
         Helper::removeAction('openclaw-submit');
+        Helper::removePanel(3, 'OpenClawTypecho/panel.php');
     }
 
     /**
-     * 配置面板
+     * 配置面板（v4.0.0 起 Token 迁移至独立管理页，此处仅保留指引）
      */
     public static function config(Form $form)
     {
-        // 1. API Token - 改为 Text 类型方便查看，加 JS 自动生成按钮
-        $token = new Text('token', null, null, 
-            _t('API 访问密钥 (Token)'), 
-            _t('AI 服务调用本接口时，必须在请求头中携带：Authorization: Bearer <token>。<br>点击下方按钮可自动生成随机 Token。')
-        );
-        $token->addRule('required', _t('Token 不能为空'));
-        $form->addInput($token);
+        $panelUrl = Helper::url('OpenClawTypecho/panel.php');
 
-        // 2. 作者用户ID - 改为下拉框，从用户列表读取
-        $db = \Typecho\Db::get();
-        $users = $db->fetchAll(
-            $db->select('uid', 'screenName', 'name')
-                ->from('table.users')
-                ->order('uid', \Typecho\Db::SORT_ASC)
+        $note = new Layout('div', ['class' => 'description']);
+        $note->html(
+            _t('自 v4.0.0 起，API Token 改为按用户独立管理：每个 AI Agent 对应一个 Typecho 用户账户，使用专属 Token 接入。') .
+            '<br>' .
+            sprintf(_t('请前往 <a href="%s">管理 → AI Token</a> 生成和管理令牌。旧版单一 Token 已在升级时自动迁移，无需重新配置。'), $panelUrl)
         );
-        
-        $userOptions = [];
-        foreach ($users as $user) {
-            $displayName = !empty($user['screenName']) ? $user['screenName'] : $user['name'];
-            $userOptions[$user['uid']] = $displayName . ' (ID: ' . $user['uid'] . ')';
-        }
-        
-        $authorId = new Select('authorId', $userOptions, '1', 
-            _t('AI 文章归属作者'), 
-            _t('选择 AI 发布文章时所使用的作者账户。建议专门创建一个用户（如用户名 "ai"），用户组设为"贡献者"，以区分人工文章和 AI 文章。')
-        );
-        $form->addInput($authorId);
-
-        // 添加 Token 自动生成按钮的 JS
-        $script = new \Typecho\Widget\Helper\Layout('script');
-        $script->setAttribute('type', 'text/javascript');
-        $script->html("
-        (function() {
-            function generateOpenClawToken() {
-                var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-                var token = '';
-                for (var i = 0; i < 48; i++) {
-                    token += chars.charAt(Math.floor(Math.random() * chars.length));
-                }
-                var input = document.querySelector('input[name=\"token\"]');
-                if (input) {
-                    input.value = token;
-                    input.type = 'text';
-                    input.select();
-                    try {
-                        document.execCommand('copy');
-                    } catch(e) {}
-                    
-                    var btn = document.querySelector('#openclaw-generate-btn');
-                    if (btn) {
-                        btn.innerHTML = '✅ 已生成并填入';
-                        btn.style.background = '#27C93F';
-                        setTimeout(function() {
-                            btn.innerHTML = '🔑 自动生成随机 Token';
-                            btn.style.background = '#467CFD';
-                        }, 2000);
-                    }
-                }
-            }
-            
-            document.addEventListener('DOMContentLoaded', function() {
-                var tokenInput = document.querySelector('input[name=\"token\"]');
-                if (tokenInput) {
-                    var btn = document.createElement('button');
-                    btn.id = 'openclaw-generate-btn';
-                    btn.type = 'button';
-                    btn.style.cssText = 'margin-top:6px;padding:4px 10px;background:#467CFD;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:12px;';
-                    btn.innerHTML = '🔑 自动生成随机 Token';
-                    btn.onclick = generateOpenClawToken;
-                    
-                    tokenInput.parentNode.insertBefore(btn, tokenInput.nextSibling);
-                }
-            });
-        })();
-        ");
-        $form->addItem($script);
+        $form->addItem($note);
     }
 
     /**
@@ -128,5 +71,122 @@ class Plugin implements PluginInterface
      */
     public static function personalConfig(Form $form)
     {
+    }
+
+    /**
+     * 生成随机 Token（48 位十六进制字符）
+     */
+    public static function generateToken(): string
+    {
+        return bin2hex(random_bytes(24));
+    }
+
+    /**
+     * 确保 Token 表存在。
+     * 覆盖升级（直接替换插件文件、未重新激活插件）时表可能不存在，
+     * 在 API 鉴权和管理面板中调用本方法兜底建表 + 迁移。
+     */
+    public static function ensureTokenTable(): void
+    {
+        $db = Db::get();
+        try {
+            $db->fetchRow($db->select('id')->from('table.' . self::TOKEN_TABLE)->limit(1));
+        } catch (\Throwable $e) {
+            self::installTokenTable();
+        }
+    }
+
+    /**
+     * 创建 Token 表并迁移旧版配置
+     */
+    public static function installTokenTable(): void
+    {
+        $db = Db::get();
+        $prefix = $db->getPrefix();
+        $table = $prefix . self::TOKEN_TABLE;
+
+        $adapterName = method_exists($db, 'getAdapterName') ? $db->getAdapterName() : 'Mysql';
+
+        if (stripos($adapterName, 'sqlite') !== false) {
+            $db->query(
+                "CREATE TABLE IF NOT EXISTS \"{$table}\" (
+                    \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,
+                    \"author_uid\" INTEGER NOT NULL,
+                    \"token_hash\" TEXT NOT NULL,
+                    \"token_prefix\" TEXT NOT NULL DEFAULT '',
+                    \"token_suffix\" TEXT NOT NULL DEFAULT '',
+                    \"status\" TEXT NOT NULL DEFAULT 'active',
+                    \"created_at\" INTEGER NOT NULL DEFAULT 0,
+                    \"last_used_at\" INTEGER NOT NULL DEFAULT 0
+                )",
+                Db::WRITE
+            );
+            $db->query(
+                "CREATE UNIQUE INDEX IF NOT EXISTS \"{$table}_author_uid\" ON \"{$table}\" (\"author_uid\")",
+                Db::WRITE
+            );
+        } else {
+            $db->query(
+                "CREATE TABLE IF NOT EXISTS `{$table}` (
+                    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                    `author_uid` INT UNSIGNED NOT NULL,
+                    `token_hash` CHAR(64) NOT NULL,
+                    `token_prefix` VARCHAR(8) NOT NULL DEFAULT '',
+                    `token_suffix` VARCHAR(8) NOT NULL DEFAULT '',
+                    `status` VARCHAR(10) NOT NULL DEFAULT 'active',
+                    `created_at` INT UNSIGNED NOT NULL DEFAULT 0,
+                    `last_used_at` INT UNSIGNED NOT NULL DEFAULT 0,
+                    PRIMARY KEY (`id`),
+                    UNIQUE KEY `author_uid` (`author_uid`),
+                    KEY `token_hash` (`token_hash`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+                Db::WRITE
+            );
+        }
+
+        self::migrateLegacyToken();
+    }
+
+    /**
+     * 迁移旧版单一 Token 配置为一条 Token 记录（老 CLI 无感升级）
+     */
+    protected static function migrateLegacyToken(): void
+    {
+        try {
+            $config = Options::alloc()->plugin('OpenClawTypecho');
+            $token = trim((string)($config->token ?? ''));
+            $authorId = intval($config->authorId ?? 0);
+        } catch (\Throwable $e) {
+            return;
+        }
+
+        if ($token === '' || $authorId <= 0) {
+            return;
+        }
+
+        $db = Db::get();
+
+        // 该用户已有 Token 记录则不重复迁移
+        $exists = $db->fetchRow(
+            $db->select('id')
+                ->from('table.' . self::TOKEN_TABLE)
+                ->where('author_uid = ?', $authorId)
+                ->limit(1)
+        );
+        if ($exists) {
+            return;
+        }
+
+        $db->query(
+            $db->insert('table.' . self::TOKEN_TABLE)->rows([
+                'author_uid'   => $authorId,
+                'token_hash'   => hash('sha256', $token),
+                'token_prefix' => substr($token, 0, 5),
+                'token_suffix' => substr($token, -5),
+                'status'       => 'active',
+                'created_at'   => time(),
+                'last_used_at' => 0,
+            ])
+        );
     }
 }
