@@ -1,14 +1,10 @@
 <?php
 namespace TypechoPlugin\OpenClawTypecho;
 
-use Typecho\Common;
 use Typecho\Validate;
-use Typecho\Widget\Exception;
 use Widget\ActionInterface;
 use Widget\Base\Contents;
-use Widget\Base\Metas;
 use Widget\Contents\EditTrait;
-use Widget\Options;
 
 if (!defined('__TYPECHO_ROOT_DIR__')) {
     exit;
@@ -18,12 +14,19 @@ if (!defined('__TYPECHO_ROOT_DIR__')) {
  * OpenClaw Typecho Skill - API 处理器
  *
  * 为 OpenClaw 等 AI 服务提供 REST API，支持文章的创建、查询、更新、删除。
+ * v4.0.0 起采用多 Token 鉴权：每个 AI Agent 绑定一个 Typecho 用户，
+ * 只能更新、删除自己账户名下的文章，分类只能从现有分类中选择。
  *
- * @version 2.0.1
+ * @version 4.0.0
  */
 class Action extends Contents implements ActionInterface
 {
     use EditTrait;
+
+    /**
+     * 当前 Token 绑定的用户 ID
+     */
+    protected int $agentUid = 0;
 
     /**
      * 获取主题字段 hook
@@ -49,9 +52,9 @@ class Action extends Contents implements ActionInterface
         try {
             $this->handleRequest();
         } catch (\Exception $e) {
-            $code = 400;
-            if (strpos($e->getMessage(), '鉴权失败') === 0) {
-                $code = 401;
+            $code = intval($e->getCode());
+            if ($code < 400 || $code > 599) {
+                $code = strpos($e->getMessage(), '鉴权失败') === 0 ? 401 : 400;
             }
             $this->sendError($e->getMessage(), $code);
         }
@@ -75,10 +78,10 @@ class Action extends Contents implements ActionInterface
             throw new \Exception('JSON 格式无效');
         }
 
-        $this->authenticate();
+        $this->agentUid = $this->authenticate();
 
         $action = $data['action'] ?? 'submit';
-        $allowedActions = ['submit', 'list', 'get', 'update', 'delete'];
+        $allowedActions = ['submit', 'list', 'get', 'update', 'delete', 'categories'];
 
         if (!in_array($action, $allowedActions, true)) {
             throw new \Exception('无效的操作类型，允许的值为: ' . implode(', ', $allowedActions));
@@ -105,9 +108,6 @@ class Action extends Contents implements ActionInterface
 
         $this->validateArticleInput($title, $text);
 
-        $config = Options::alloc()->plugin('OpenClawTypecho');
-        $authorId = max(1, intval($config->authorId ?? 1));
-
         if ($markdown) {
             $text = '<!--markdown-->' . $text;
         }
@@ -125,7 +125,7 @@ class Action extends Contents implements ActionInterface
             'text'         => $text,
             'type'         => $type,
             'status'       => $dbStatus,
-            'authorId'     => $authorId,
+            'authorId'     => $this->agentUid,
             'allowComment' => 1,
             'allowPing'    => 1,
             'allowFeed'    => 1,
@@ -141,12 +141,9 @@ class Action extends Contents implements ActionInterface
             throw new \Exception('创建文章失败：数据库写入异常，请检查数据库权限和表结构');
         }
 
-        $categoryName = $category;
-        if (!empty($categoryName)) {
-            $categoryId = $this->ensureCategory($categoryName);
-            if ($categoryId) {
-                $this->setCategories($cid, [$categoryId], false, false);
-            }
+        if (!empty($category)) {
+            $categoryId = $this->findCategory($category);
+            $this->setCategories($cid, [$categoryId], false, false);
         }
 
         if (!empty($tags)) {
@@ -165,7 +162,7 @@ class Action extends Contents implements ActionInterface
     // ==================== 查询列表 ====================
 
     /**
-     * 处理文章列表查询
+     * 处理文章列表查询（可读所有文章，用于知识库检索）
      */
     protected function handleList(array $data)
     {
@@ -246,7 +243,7 @@ class Action extends Contents implements ActionInterface
     // ==================== 查询单篇 ====================
 
     /**
-     * 处理单篇文章查询
+     * 处理单篇文章查询（可读所有文章）
      */
     protected function handleGet(array $data)
     {
@@ -297,10 +294,44 @@ class Action extends Contents implements ActionInterface
         ]);
     }
 
+    // ==================== 查询分类列表 ====================
+
+    /**
+     * 处理分类列表查询
+     * Agent 只能使用现有分类，发布前通过本接口获取可选范围
+     */
+    protected function handleCategories(array $data)
+    {
+        $rows = $this->db->fetchAll(
+            $this->db->select('mid', 'name', 'slug', 'count', 'parent')
+                ->from('table.metas')
+                ->where('type = ?', 'category')
+                ->order('order', \Typecho\Db::SORT_ASC)
+                ->order('mid', \Typecho\Db::SORT_ASC)
+        );
+
+        $categories = array_map(function ($row) {
+            return [
+                'mid'    => intval($row['mid']),
+                'name'   => $row['name'],
+                'slug'   => $row['slug'],
+                'count'  => intval($row['count']),
+                'parent' => intval($row['parent']),
+            ];
+        }, $rows);
+
+        $this->response->throwJson([
+            'success' => true,
+            'action'  => 'categories',
+            'total'   => count($categories),
+            'data'    => $categories,
+        ]);
+    }
+
     // ==================== 更新文章 ====================
 
     /**
-     * 处理文章更新
+     * 处理文章更新（仅限本人账户名下的文章）
      */
     protected function handleUpdate(array $data)
     {
@@ -311,7 +342,7 @@ class Action extends Contents implements ActionInterface
 
         // 检查文章是否存在
         $exists = $this->db->fetchRow(
-            $this->db->select('cid', 'type', 'status')
+            $this->db->select('cid', 'type', 'status', 'authorId')
                 ->from('table.contents')
                 ->where('cid = ?', $cid)
                 ->limit(1)
@@ -320,6 +351,9 @@ class Action extends Contents implements ActionInterface
         if (!$exists) {
             throw new \Exception('文章不存在：cid ' . $cid . ' 对应的文章未找到');
         }
+
+        // 归属隔离：只能更新本人账户名下的文章
+        $this->assertOwnership($exists, $cid, '更新');
 
         $update = [];
 
@@ -372,11 +406,9 @@ class Action extends Contents implements ActionInterface
             }
         }
 
-        if (empty($update)) {
+        if (empty($update) && !isset($data['category']) && !isset($data['tags'])) {
             throw new \Exception('没有需要更新的字段：请至少传入 title、text、category、tags、slug 或 status 中的一个');
         }
-
-        $update['modified'] = time();
 
         // 敏感内容检查
         $checkContent = ($update['title'] ?? '') . ($update['text'] ?? '');
@@ -385,20 +417,21 @@ class Action extends Contents implements ActionInterface
         }
 
         // 执行更新
-        $this->db->query(
-            $this->db->update('table.contents')
-                ->rows($update)
-                ->where('cid = ?', $cid)
-        );
+        if (!empty($update)) {
+            $update['modified'] = time();
+            $this->db->query(
+                $this->db->update('table.contents')
+                    ->rows($update)
+                    ->where('cid = ?', $cid)
+            );
+        }
 
-        // 更新分类
+        // 更新分类（仅限现有分类）
         if (isset($data['category'])) {
             $category = $this->sanitizeString($data['category']);
             if (!empty($category)) {
-                $categoryId = $this->ensureCategory($category);
-                if ($categoryId) {
-                    $this->setCategories($cid, [$categoryId], false, false);
-                }
+                $categoryId = $this->findCategory($category);
+                $this->setCategories($cid, [$categoryId], false, false);
             }
         }
 
@@ -422,7 +455,7 @@ class Action extends Contents implements ActionInterface
     // ==================== 删除文章 ====================
 
     /**
-     * 处理文章删除
+     * 处理文章删除（仅限本人账户名下的文章）
      */
     protected function handleDelete(array $data)
     {
@@ -433,7 +466,7 @@ class Action extends Contents implements ActionInterface
 
         // 检查文章是否存在
         $exists = $this->db->fetchRow(
-            $this->db->select('cid')
+            $this->db->select('cid', 'authorId')
                 ->from('table.contents')
                 ->where('cid = ?', $cid)
                 ->limit(1)
@@ -442,6 +475,9 @@ class Action extends Contents implements ActionInterface
         if (!$exists) {
             throw new \Exception('文章不存在：cid ' . $cid . ' 对应的文章未找到');
         }
+
+        // 归属隔离：只能删除本人账户名下的文章
+        $this->assertOwnership($exists, $cid, '删除');
 
         // 删除关联的分类和标签关系
         $this->db->query(
@@ -467,6 +503,19 @@ class Action extends Contents implements ActionInterface
     }
 
     // ==================== 辅助方法 ====================
+
+    /**
+     * 归属校验：文章作者必须是当前 Token 绑定的用户
+     */
+    protected function assertOwnership(array $article, int $cid, string $verb): void
+    {
+        if (intval($article['authorId']) !== $this->agentUid) {
+            throw new \Exception(
+                '无权操作：只能' . $verb . '本人账户名下的文章（cid ' . $cid . ' 属于其他用户）',
+                403
+            );
+        }
+    }
 
     /**
      * 验证文章输入
@@ -555,28 +604,46 @@ class Action extends Contents implements ActionInterface
     }
 
     /**
-     * 鉴权
+     * 鉴权：校验 Bearer Token 并返回绑定的用户 ID
      */
-    protected function authenticate()
+    protected function authenticate(): int
     {
         $auth = $this->request->getHeader('Authorization', '');
         if (empty($auth)) {
-            throw new \Exception('鉴权失败：请求缺少 Authorization 头');
+            throw new \Exception('鉴权失败：请求缺少 Authorization 头', 401);
         }
         if (!preg_match('/^Bearer\s+(\S+)$/i', $auth, $matches)) {
-            throw new \Exception('鉴权失败：Authorization 格式错误，应为 Bearer <token>');
+            throw new \Exception('鉴权失败：Authorization 格式错误，应为 Bearer <token>', 401);
         }
 
         $token = $matches[1];
-        $config = Options::alloc()->plugin('OpenClawTypecho');
-        $expectedToken = $config->token ?? '';
+        if (empty($token)) {
+            throw new \Exception('鉴权失败：Token 为空', 401);
+        }
 
-        if (empty($expectedToken)) {
-            throw new \Exception('鉴权失败：插件未配置 Token，请进入后台 → 插件 → OpenClawTypecho → 设置生成 Token');
+        // 覆盖升级时表可能尚未创建，兜底建表 + 迁移旧配置
+        Plugin::ensureTokenTable();
+
+        $row = $this->db->fetchRow(
+            $this->db->select('id', 'author_uid')
+                ->from('table.openclaw_tokens')
+                ->where('token_hash = ?', hash('sha256', $token))
+                ->where('status = ?', 'active')
+                ->limit(1)
+        );
+
+        if (!$row) {
+            throw new \Exception('鉴权失败：Token 无效或已吊销，请进入后台「管理 → AI Token」检查', 401);
         }
-        if (empty($token) || !hash_equals($expectedToken, $token)) {
-            throw new \Exception('鉴权失败：Token 无效或已过期');
-        }
+
+        // 更新最近使用时间
+        $this->db->query(
+            $this->db->update('table.openclaw_tokens')
+                ->rows(['last_used_at' => time()])
+                ->where('id = ?', intval($row['id']))
+        );
+
+        return intval($row['author_uid']);
     }
 
     /**
@@ -642,14 +709,10 @@ class Action extends Contents implements ActionInterface
     }
 
     /**
-     * 确保分类存在
+     * 查找现有分类（v4.0.0 起不再自动创建分类）
      */
-    protected function ensureCategory(string $name): ?int
+    protected function findCategory(string $name): int
     {
-        if (empty($name)) {
-            return null;
-        }
-
         $row = $this->db->fetchRow(
             $this->db->select('mid')
                 ->from('table.metas')
@@ -658,23 +721,11 @@ class Action extends Contents implements ActionInterface
                 ->limit(1)
         );
 
-        if ($row) {
-            return intval($row['mid']);
+        if (!$row) {
+            throw new \Exception('分类不存在：' . $name . '，请先通过 categories 操作查询现有分类列表');
         }
 
-        $slug = Common::slugName($name) ?: 'uncategorized';
-
-        $mid = Metas::alloc()->insert([
-            'name'        => $name,
-            'slug'        => $slug,
-            'type'        => 'category',
-            'count'       => 0,
-            'order'       => 0,
-            'parent'      => 0,
-            'description' => '',
-        ]);
-
-        return $mid > 0 ? $mid : null;
+        return intval($row['mid']);
     }
 
     /**
