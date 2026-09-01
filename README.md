@@ -81,7 +81,7 @@ Token management on the same page: **regenerate** (old token dies instantly), **
 **Option 1 — via OpenClaw (recommended):**
 
 ```bash
-openclaw skills install typecho-publisher
+openclaw skills install @coolingrabbit/typecho-publisher
 ```
 
 **Option 2 — let the agent install it itself.** Paste the following prompt to your AI agent:
