@@ -4,6 +4,33 @@
 
 ---
 
+## v4.1.0 · 代码审查修复（2026-09-02）
+
+依据第三方代码审查报告修复 8 项确认问题，并附带若干改进。
+
+### 修复（严重）
+
+- **分类/标签计数永不更新**：`updateCategoryCount()` 只有调用没有定义，被 `Widget::__call` 静默吞掉；现已实现该方法（覆盖分类与标签，含归零），并在 submit / update / delete 后统一刷新
+- **submit/update 先写库后校验分类**：分类不存在时返回 400 但脏文章已入库（AI 重试会产生重复文章）；现在分类校验前置，失败直接报错不写库
+- **list 的 total 与列表过滤条件不一致**：count 查询与列表查询改用同一组过滤条件（`applyListFilters`），修复空尾页
+
+### 修复（中等）
+
+- **update 空正文守卫条件写反**：`update --text ""` 曾可清空正文且不可逆，现在一律拒绝
+- **`list --category` 参数被静默忽略**：已实现按分类名过滤（join relationships + metas）
+- **status 无白名单**：非法状态值曾可入库导致文章前台消失，现在仅允许 `publish / draft / waiting / private / hidden`
+- **get/update/delete 未限定文章类型**：曾可读取/修改/删除独立页面等非文章内容，现在限定 `post / post_draft`
+- **Token 绑定用户被删除后 Token 仍有效**：鉴权时增加用户存在性校验，用户已删除的 Token 立即失效
+
+### 改进
+
+- 敏感信息正则加数字边界（`(?<!\d)` / `(?!\d)`），减少长数字串误报
+- 长度限制从 `strlen`（字节）改为 `mb_strlen`（字符）：标题 ≤ 200 字符、正文 ≤ 50000 字符、标签 ≤ 100 字符，与文档描述一致
+- `typecho-cli` 失败时退出码为 1（此前恒为 0），便于脚本与 Agent 判断成败
+- README 仓库结构图补充 LICENSE 与 .gitignore
+
+---
+
 ## v4.0.1 · 修复升级后设置页 Server Error（2026-09-01）
 
 ### 修复

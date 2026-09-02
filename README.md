@@ -120,6 +120,8 @@ Typecho-Publisher/
 ├── docs/
 │   ├── README.zh-CN.md    ← Full Chinese documentation
 │   └── CHANGELOG.md       ← Version history & release notes
+├── LICENSE                ← GPL-3.0
+├── .gitignore
 └── README.md              ← This file
 ```
 

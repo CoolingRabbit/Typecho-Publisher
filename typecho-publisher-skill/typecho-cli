@@ -78,6 +78,12 @@ def api_call(domain, token, payload):
         return {"success": False, "message": str(e)}
 
 
+def output(result):
+    """打印结果并按 success 设置退出码（0 成功 / 1 失败）"""
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    sys.exit(0 if result.get("success") else 1)
+
+
 def cmd_list(args):
     domain, token = load_config(args)
     payload = {"action": "list", "page": args.page, "pageSize": args.page_size}
@@ -86,21 +92,21 @@ def cmd_list(args):
     if args.category:
         payload["category"] = args.category
     result = api_call(domain, token, payload)
-    print(json.dumps(result, ensure_ascii=False, indent=2))
+    output(result)
 
 
 def cmd_get(args):
     domain, token = load_config(args)
     payload = {"action": "get", "cid": args.cid}
     result = api_call(domain, token, payload)
-    print(json.dumps(result, ensure_ascii=False, indent=2))
+    output(result)
 
 
 def cmd_categories(args):
     domain, token = load_config(args)
     payload = {"action": "categories"}
     result = api_call(domain, token, payload)
-    print(json.dumps(result, ensure_ascii=False, indent=2))
+    output(result)
 
 
 def cmd_submit(args):
@@ -118,7 +124,7 @@ def cmd_submit(args):
     if args.slug:
         payload["slug"] = args.slug
     result = api_call(domain, token, payload)
-    print(json.dumps(result, ensure_ascii=False, indent=2))
+    output(result)
 
 
 def cmd_update(args):
@@ -137,14 +143,14 @@ def cmd_update(args):
     if args.slug is not None:
         payload["slug"] = args.slug
     result = api_call(domain, token, payload)
-    print(json.dumps(result, ensure_ascii=False, indent=2))
+    output(result)
 
 
 def cmd_delete(args):
     domain, token = load_config(args)
     payload = {"action": "delete", "cid": args.cid}
     result = api_call(domain, token, payload)
-    print(json.dumps(result, ensure_ascii=False, indent=2))
+    output(result)
 
 
 def main():

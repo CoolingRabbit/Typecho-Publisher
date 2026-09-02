@@ -17,7 +17,7 @@ if (!defined('__TYPECHO_ROOT_DIR__')) {
  * v4.0.0 起采用多 Token 鉴权：每个 AI Agent 绑定一个 Typecho 用户，
  * 只能更新、删除自己账户名下的文章，分类只能从现有分类中选择。
  *
- * @version 4.0.0
+ * @version 4.1.0
  */
 class Action extends Contents implements ActionInterface
 {
@@ -135,20 +135,28 @@ class Action extends Contents implements ActionInterface
             $contents['slug'] = $slug;
         }
 
+        // 分类校验前置：分类不存在直接报错，避免产生脏文章
+        $categoryId = 0;
+        if (!empty($category)) {
+            $categoryId = $this->findCategory($category);
+        }
+
         $cid = $this->insert($contents);
 
         if ($cid <= 0) {
             throw new \Exception('创建文章失败：数据库写入异常，请检查数据库权限和表结构');
         }
 
-        if (!empty($category)) {
-            $categoryId = $this->findCategory($category);
+        if ($categoryId > 0) {
             $this->setCategories($cid, [$categoryId], false, false);
         }
 
         if (!empty($tags)) {
             $this->setTags($cid, implode(',', $tags), false, false);
         }
+
+        // 刷新分类/标签计数（setCategories/setTags 已关闭内核自动计数）
+        $this->updateCategoryCount();
 
         $this->response->throwJson([
             'success' => true,
@@ -168,7 +176,7 @@ class Action extends Contents implements ActionInterface
     {
         $page = max(1, intval($data['page'] ?? 1));
         $pageSize = min(50, max(1, intval($data['pageSize'] ?? 10)));
-        $statusFilter = $data['status'] ?? null;
+        $statusFilter = isset($data['status']) ? strval($data['status']) : null;
         $categoryFilter = $this->sanitizeString($data['category'] ?? '');
 
         $offset = ($page - 1) * $pageSize;
@@ -192,18 +200,8 @@ class Action extends Contents implements ActionInterface
             ->offset($offset)
             ->limit($pageSize);
 
-        // 状态过滤
-        if ($statusFilter !== null) {
-            $dbStatus = $this->mapStatusToDb($statusFilter);
-            if ($dbStatus !== null) {
-                $select->where('c.status = ?', $dbStatus);
-                if ($statusFilter === 'draft') {
-                    $select->where('c.type = ?', 'post_draft');
-                } else {
-                    $select->where('c.type = ?', 'post');
-                }
-            }
-        }
+        // 状态与分类过滤（与 count 查询共用同一组条件，保证 total 与列表一致）
+        $this->applyListFilters($select, $statusFilter, $categoryFilter);
 
         $articles = $this->db->fetchAll($select);
 
@@ -217,16 +215,12 @@ class Action extends Contents implements ActionInterface
             unset($article['type']);
         }
 
-        // 统计总数
-        $countSelect = $this->db->select('COUNT(*) as total')
-            ->from('table.contents')
-            ->where('type = ? OR type = ?', 'post', 'post_draft');
-        if ($statusFilter !== null) {
-            $dbStatus = $this->mapStatusToDb($statusFilter);
-            if ($dbStatus !== null) {
-                $countSelect->where('status = ?', $dbStatus);
-            }
-        }
+        // 统计总数（与列表查询使用相同的 join 和过滤条件）
+        $countSelect = $this->db->select('COUNT(DISTINCT c.cid) as total')
+            ->from('table.contents as c')
+            ->join('table.users as u', 'c.authorId = u.uid')
+            ->where('c.type = ? OR c.type = ?', 'post', 'post_draft');
+        $this->applyListFilters($countSelect, $statusFilter, $categoryFilter);
         $total = $this->db->fetchRow($countSelect)['total'] ?? 0;
 
         $this->response->throwJson([
@@ -269,6 +263,7 @@ class Action extends Contents implements ActionInterface
             )
             ->from('table.contents')
             ->where('cid = ?', $cid)
+            ->where('type = ? OR type = ?', 'post', 'post_draft')
             ->limit(1)
         );
 
@@ -345,6 +340,7 @@ class Action extends Contents implements ActionInterface
             $this->db->select('cid', 'type', 'status', 'authorId')
                 ->from('table.contents')
                 ->where('cid = ?', $cid)
+                ->where('type = ? OR type = ?', 'post', 'post_draft')
                 ->limit(1)
         );
 
@@ -363,7 +359,7 @@ class Action extends Contents implements ActionInterface
             if (empty($title)) {
                 throw new \Exception('标题不能为空');
             }
-            if (strlen($title) > 200) {
+            if (mb_strlen($title) > 200) {
                 throw new \Exception('标题长度不能超过 200 字符');
             }
             $update['title'] = $title;
@@ -372,11 +368,11 @@ class Action extends Contents implements ActionInterface
         // 正文
         if (isset($data['text'])) {
             $text = $this->sanitizeText($data['text']);
-            if (isset($data['title']) && empty($text)) {
+            if (empty($text)) {
                 throw new \Exception('正文不能为空');
             }
-            if (strlen($text) > 50000) {
-                throw new \Exception('正文长度不能超过 50KB');
+            if (mb_strlen($text) > 50000) {
+                throw new \Exception('正文长度不能超过 50000 字符');
             }
 
             $markdown = isset($data['markdown']) ? !empty($data['markdown']) : true;
@@ -416,6 +412,15 @@ class Action extends Contents implements ActionInterface
             $this->checkSensitiveContent($checkContent);
         }
 
+        // 分类校验前置：分类不存在直接报错，避免写库后才发现分类无效
+        $categoryId = null;
+        if (isset($data['category'])) {
+            $category = $this->sanitizeString($data['category']);
+            if (!empty($category)) {
+                $categoryId = $this->findCategory($category);
+            }
+        }
+
         // 执行更新
         if (!empty($update)) {
             $update['modified'] = time();
@@ -426,13 +431,9 @@ class Action extends Contents implements ActionInterface
             );
         }
 
-        // 更新分类（仅限现有分类）
-        if (isset($data['category'])) {
-            $category = $this->sanitizeString($data['category']);
-            if (!empty($category)) {
-                $categoryId = $this->findCategory($category);
-                $this->setCategories($cid, [$categoryId], false, false);
-            }
+        // 更新分类（已在写库前完成校验）
+        if ($categoryId !== null) {
+            $this->setCategories($cid, [$categoryId], false, false);
         }
 
         // 更新标签
@@ -469,6 +470,7 @@ class Action extends Contents implements ActionInterface
             $this->db->select('cid', 'authorId')
                 ->from('table.contents')
                 ->where('cid = ?', $cid)
+                ->where('type = ? OR type = ?', 'post', 'post_draft')
                 ->limit(1)
         );
 
@@ -530,12 +532,12 @@ class Action extends Contents implements ActionInterface
             throw new \Exception('正文不能为空');
         }
 
-        if (strlen($title) > 200) {
+        if (mb_strlen($title) > 200) {
             throw new \Exception('标题长度不能超过 200 字符');
         }
 
-        if (strlen($text) > 50000) {
-            throw new \Exception('正文长度不能超过 50KB');
+        if (mb_strlen($text) > 50000) {
+            throw new \Exception('正文长度不能超过 50000 字符');
         }
 
         $this->checkSensitiveContent($title . $text);
@@ -636,6 +638,17 @@ class Action extends Contents implements ActionInterface
             throw new \Exception('鉴权失败：Token 无效或已吊销，请进入后台「管理 → AI Token」检查', 401);
         }
 
+        // Token 绑定的用户可能已被站长删除，此时 Token 必须失效
+        $userExists = $this->db->fetchRow(
+            $this->db->select('uid')
+                ->from('table.users')
+                ->where('uid = ?', intval($row['author_uid']))
+                ->limit(1)
+        );
+        if (!$userExists) {
+            throw new \Exception('鉴权失败：Token 绑定的用户已被删除，请联系站长重新签发', 401);
+        }
+
         // 更新最近使用时间
         $this->db->query(
             $this->db->update('table.openclaw_tokens')
@@ -677,7 +690,7 @@ class Action extends Contents implements ActionInterface
         $result = [];
         foreach ($tags as $tag) {
             $tag = trim($tag);
-            if (strlen($tag) > 0 && strlen($tag) <= 100 && Validate::xssCheck($tag)) {
+            if (mb_strlen($tag) > 0 && mb_strlen($tag) <= 100 && Validate::xssCheck($tag)) {
                 $result[] = $tag;
             }
         }
@@ -700,12 +713,19 @@ class Action extends Contents implements ActionInterface
     }
 
     /**
-     * 状态约束——保留 draft 特殊处理，其余原样透传
+     * 状态约束：白名单校验，非法值直接拒绝
      */
     protected function sanitizeStatus(?string $value): string
     {
         $value = trim($value ?? '');
-        return $value !== '' ? $value : 'waiting';
+        if ($value === '') {
+            return 'waiting';
+        }
+        $allowed = ['publish', 'draft', 'waiting', 'private', 'hidden'];
+        if (!in_array($value, $allowed, true)) {
+            throw new \Exception('无效的文章状态：' . $value . '，允许的值为: ' . implode(', ', $allowed));
+        }
+        return $value;
     }
 
     /**
@@ -729,14 +749,62 @@ class Action extends Contents implements ActionInterface
     }
 
     /**
+     * 列表过滤条件：list 的查询与 count 统计共用，保证 total 与列表一致
+     */
+    protected function applyListFilters($select, ?string $statusFilter, string $categoryFilter): void
+    {
+        if ($statusFilter !== null) {
+            $dbStatus = $this->mapStatusToDb($statusFilter);
+            if ($dbStatus !== null) {
+                $select->where('c.status = ?', $dbStatus);
+                if ($statusFilter === 'draft') {
+                    $select->where('c.type = ?', 'post_draft');
+                } else {
+                    $select->where('c.type = ?', 'post');
+                }
+            }
+        }
+
+        if ($categoryFilter !== '') {
+            $select->join('table.relationships as rc', 'c.cid = rc.cid')
+                ->join('table.metas as mc', 'rc.mid = mc.mid')
+                ->where('mc.type = ?', 'category')
+                ->where('mc.name = ?', $categoryFilter);
+        }
+    }
+
+    /**
+     * 刷新分类与标签的文章计数
+     * （setCategories/setTags 以 false 关闭了内核自动计数，需手动维护 metas.count）
+     */
+    protected function updateCategoryCount(): void
+    {
+        $rows = $this->db->fetchAll(
+            $this->db->select('table.metas.mid', 'COUNT(table.relationships.cid) AS `count`')
+                ->from('table.metas')
+                ->join('table.relationships', 'table.relationships.mid = table.metas.mid', 'LEFT JOIN')
+                ->where('table.metas.type = ? OR table.metas.type = ?', 'category', 'tag')
+                ->group('table.metas.mid')
+        );
+
+        foreach ($rows as $row) {
+            $this->db->query(
+                $this->db->update('table.metas')
+                    ->rows(['count' => intval($row['count'])])
+                    ->where('mid = ?', intval($row['mid']))
+            );
+        }
+    }
+
+    /**
      * 敏感内容检查
      */
     protected function checkSensitiveContent(string $content): void
     {
         $patterns = [
-            '手机号'    => '/1[3-9]\d{9}/',
-            '身份证号'  => '/\d{17}[\dXx]|\d{15}/',
-            '银行卡号'  => '/\d{16,19}/',
+            '手机号'    => '/(?<!\d)1[3-9]\d{9}(?!\d)/',
+            '身份证号'  => '/(?<!\d)(?:\d{17}[\dXx]|\d{15})(?!\d)/',
+            '银行卡号'  => '/(?<!\d)\d{16,19}(?!\d)/',
         ];
 
         foreach ($patterns as $name => $pattern) {

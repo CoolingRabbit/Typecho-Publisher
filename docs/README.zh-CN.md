@@ -64,6 +64,8 @@ Typecho-Publisher/
 ├── docs/
 │   ├── README.zh-CN.md ← 本文档
 │   └── CHANGELOG.md    ← 版本更新日志
+├── LICENSE             ← GPL-3.0
+├── .gitignore
 └── README.md           ← 英文说明
 ```
 
@@ -218,7 +220,7 @@ curl -X POST https://your-blog.com/index.php/action/openclaw-submit \
 | 限制 | 说明 |
 |------|------|
 | **图片上传** | ❌ 不支持。图片需使用外部图床 URL，在正文用 Markdown 图片语法 `![alt](url)` 引用 |
-| **正文长度** | 不超过 50KB（**字节长度**，中文约 1.6 万字），超长应分多篇 |
+| **正文长度** | 不超过 50000 字符，超长应分多篇 |
 | **增量更新** | ❌ `update` 的 `text` 字段是**整体替换**，不是增量追加。更新前必须先 `get` 获取完整原文 |
 | **分类** | **不再自动创建分类**。传入不存在的分类会报错，需先通过 `categories` 查询现有分类；都不合适请人工在后台新建 |
 | **跨账户操作** | ❌ 不能更新、删除其他用户（含其他 Agent）名下的文章，返回 403 |
@@ -256,7 +258,7 @@ curl -X POST https://your-blog.com/index.php/action/openclaw-submit \
 | 管理面板防护 | Token 管理仅管理员可见，表单带 CSRF 校验，操作均有确认提示 |
 | 敏感信息拦截 | 自动检测手机号、身份证号、银行卡号 |
 | XSS 过滤 | 标签字段经 `Validate::xssCheck()` 处理 |
-| 长度限制 | 标题 ≤ 200 字符，正文 ≤ 50KB |
+| 长度限制 | 标题 ≤ 200 字符，正文 ≤ 50000 字符 |
 | 独立作者账户 | 每个 Agent 一个贡献者账户，人工文章与 AI 文章、AI 与 AI 文章均可区分 |
 
 ---

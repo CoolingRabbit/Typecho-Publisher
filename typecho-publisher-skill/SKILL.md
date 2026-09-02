@@ -14,7 +14,7 @@ version: 4.1.0
 
 ## 前置条件
 
-- 用户已部署 Typecho 博客，并安装本插件 v4.0.0+（仓库 Releases 下载）
+- 用户已部署 Typecho 博客，并安装本插件 v4.1.0+（从代码仓库下载 `Plugin.php`、`Action.php`、`panel.php` 三个文件安装）
 - 站长已在博客后台「管理 → AI Token」为本 Agent 对应的用户账户生成 Token
 
 如果用户尚未提供 Token，提醒用户找站长生成。
@@ -136,7 +136,7 @@ typecho-cli delete --cid <文章ID>
 
 ## 技术限制
 
-- **正文长度**：不超过 50KB（字节），超长应分多篇
+- **正文长度**：不超过 50000 字符，超长应分多篇
 - **图片**：不支持上传，使用外部图床 URL + Markdown 图片语法引用
 - **Markdown**：插件自动添加 `<!--markdown-->` 前缀，只需提供标准 Markdown 正文
 - **敏感信息**：插件自动拦截手机号、身份证号、银行卡号
