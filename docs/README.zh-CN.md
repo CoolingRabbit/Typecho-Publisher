@@ -8,6 +8,10 @@
 
 ---
 
+<img width="1529" height="739" alt="7cdd82a785c6c2d2c4a55967a43dd08d" src="https://github.com/user-attachments/assets/3f89b86b-183a-46f0-a2d7-984a6f1d9825" />
+
+---
+
 ## 项目简介
 
 Typecho-Publisher（原名 OpenClawTypecho）由一个 Typecho 插件和一个 AI Skill 组成，让 AI 通过 REST API 和 `typecho-cli` 命令行工具创建、查询、更新、删除博客文章。
