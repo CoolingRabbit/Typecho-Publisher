@@ -782,7 +782,7 @@ class Action extends Contents implements ActionInterface
         $rows = $this->db->fetchAll(
             $this->db->select('table.metas.mid', 'COUNT(table.relationships.cid) AS `count`')
                 ->from('table.metas')
-                ->join('table.relationships', 'table.relationships.mid = table.metas.mid', 'LEFT JOIN')
+                ->join('table.relationships', 'table.relationships.mid = table.metas.mid', \Typecho\Db::LEFT_JOIN)
                 ->where('table.metas.type = ? OR table.metas.type = ?', 'category', 'tag')
                 ->group('table.metas.mid')
         );
