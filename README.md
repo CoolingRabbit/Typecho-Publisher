@@ -8,6 +8,10 @@ Once installed, each AI agent connects with its **own token** bound to its **own
 
 ---
 
+<img width="1529" height="739" alt="7cdd82a785c6c2d2c4a55967a43dd08d" src="https://github.com/user-attachments/assets/3f89b86b-183a-46f0-a2d7-984a6f1d9825" />
+
+---
+
 ## Introduction
 
 Typecho-Publisher (formerly OpenClawTypecho) is a Typecho plugin plus an AI skill that lets AI agents create, query, update, and delete blog posts through a simple REST API and a `typecho-cli` command-line tool.
