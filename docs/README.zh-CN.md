@@ -64,7 +64,9 @@ Typecho-Publisher/
 ├── typecho-publisher-skill/ ← AI Skill 工具层
 │   ├── SKILL.md        ← Agent 操作规范
 │   ├── typecho-cli     ← Python CLI 工具
-│   └── plugin.json     ← Skill 元数据
+│   ├── plugin.json     ← Skill 元数据
+│   ├── config.example.json ← 已初始化的连接配置模板（不含凭据）
+│   └── references/     ← 按需读取的发布与写作流程
 ├── docs/
 │   ├── README.zh-CN.md ← 本文档
 │   └── CHANGELOG.md    ← 版本更新日志
@@ -135,6 +137,15 @@ https://github.com/CoolingRabbit/Typecho-Publisher
 
 然后执行 `typecho-cli categories` 验证连通性，并把结果展示给我。
 ```
+
+也可以复制已初始化的配置模板，将真实配置保存在技能目录：
+
+```bash
+cp typecho-publisher-skill/config.example.json typecho-publisher-skill/config.json
+chmod 600 typecho-publisher-skill/config.json
+```
+
+真实 `config.json` 已被 `.gitignore` 排除，不要提交到仓库或打入公开技能包。
 
 ---
 

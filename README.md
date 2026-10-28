@@ -108,6 +108,15 @@ Save them to ~/.config/typecho-cli/config.json in this format:
 Then run `typecho-cli categories` to verify the connection and show me the result.
 ```
 
+You can also keep the configuration with the skill by copying the initialized template and filling in real values:
+
+```bash
+cp typecho-publisher-skill/config.example.json typecho-publisher-skill/config.json
+chmod 600 typecho-publisher-skill/config.json
+```
+
+The real `config.json` is excluded by `.gitignore`; never commit it or include it in a public skill package.
+
 ---
 
 ## Repository Structure
@@ -120,7 +129,9 @@ Typecho-Publisher/
 ├── typecho-publisher-skill/   ← AI skill layer
 │   ├── SKILL.md           ← Operating manual for agents
 │   ├── typecho-cli        ← Python CLI tool
-│   └── plugin.json        ← Skill metadata
+│   ├── plugin.json        ← Skill metadata
+│   ├── config.example.json ← Initialized connection template (no credentials)
+│   └── references/        ← On-demand publishing and writing workflows
 ├── docs/
 │   ├── README.zh-CN.md    ← Full Chinese documentation
 │   └── CHANGELOG.md       ← Version history & release notes
