@@ -11,23 +11,27 @@ import sys
 import urllib.request
 import urllib.error
 
+SKILL_CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 DEFAULT_CONFIG_PATH = os.path.expanduser("~/.config/typecho-cli/config.json")
 
 
 def load_config(args):
-    """加载配置，优先级: 命令行参数 > 环境变量 > 配置文件"""
+    """加载配置，优先级: 命令行参数 > 环境变量 > 技能目录 config.json > ~/.config/typecho-cli/config.json"""
     domain = None
     token = None
 
-    # 1. 配置文件
-    if os.path.exists(DEFAULT_CONFIG_PATH):
-        try:
-            with open(DEFAULT_CONFIG_PATH, "r", encoding="utf-8") as f:
-                cfg = json.load(f)
-                domain = cfg.get("domain")
-                token = cfg.get("token")
-        except Exception:
-            pass
+    # 1. 配置文件（技能目录内置配置优先，其次用户目录）
+    for path in (SKILL_CONFIG_PATH, DEFAULT_CONFIG_PATH):
+        if domain and token:
+            break
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    cfg = json.load(f)
+                    domain = domain or cfg.get("domain")
+                    token = token or cfg.get("token")
+            except Exception:
+                pass
 
     # 2. 环境变量
     domain = os.environ.get("TYPECHO_DOMAIN", domain)
@@ -43,9 +47,10 @@ def load_config(args):
         print(json.dumps({
             "success": False,
             "message": "缺少配置：请设置 domain 和 token。方式：\n"
-                       f"1. 写入配置文件 {DEFAULT_CONFIG_PATH}\n"
-                       "2. 环境变量 TYPECHO_DOMAIN / TYPECHO_TOKEN\n"
-                       "3. 命令行参数 --domain / --token"
+                       f"1. 技能目录内置配置文件 {SKILL_CONFIG_PATH}\n"
+                       f"2. 写入配置文件 {DEFAULT_CONFIG_PATH}\n"
+                       "3. 环境变量 TYPECHO_DOMAIN / TYPECHO_TOKEN\n"
+                       "4. 命令行参数 --domain / --token"
         }))
         sys.exit(1)
 
