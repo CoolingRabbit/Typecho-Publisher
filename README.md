@@ -135,7 +135,7 @@ Typecho-Publisher/
 ├── docs/
 │   ├── README.zh-CN.md    ← Full Chinese documentation
 │   └── CHANGELOG.md       ← Version history & release notes
-├── LICENSE                ← GPL-3.0
+├── LICENSE                ← Apache-2.0
 ├── .gitignore
 └── README.md              ← This file
 ```
@@ -144,6 +144,6 @@ Typecho-Publisher/
 
 ## License
 
-[GPL-3.0](LICENSE)
+[Apache-2.0](LICENSE)
 
 Copyright (c) 2026 CoolingRabbit
