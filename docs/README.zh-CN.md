@@ -70,7 +70,7 @@ Typecho-Publisher/
 ├── docs/
 │   ├── README.zh-CN.md ← 本文档
 │   └── CHANGELOG.md    ← 版本更新日志
-├── LICENSE             ← GPL-3.0
+├── LICENSE             ← Apache-2.0
 ├── .gitignore
 └── README.md           ← 英文说明
 ```
@@ -350,6 +350,6 @@ curl -X POST https://your-blog.com/index.php/action/openclaw-submit \
 
 ## 许可证
 
-[GPL-3.0](../LICENSE)
+[Apache-2.0](../LICENSE)
 
 Copyright (c) 2026 CoolingRabbit
